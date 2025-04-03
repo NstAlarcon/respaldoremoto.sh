@@ -1,148 +1,71 @@
-# respaldoremoto.sh 
-Automatizacion bases de datos backup.
+Backup database automation.
 
-Este script genera una copia de seguridad de nuestra base de datos mysql y posteriormente la envia a otro servidor remoto.
- A sido empleado exitosamente en dos servidores ubuntu 22.04 y 18.04 en distintas redes en el envio de respaldo de base de datos sql.
+This script generates a backup of our MySQL database and then sends it to another remote server. It has been successfully used on two Ubuntu servers, 22.04 and 18.04, on different networks to send SQL database backups.
 
-Antes de ejecutar realiza esto:
+Before running do this:
 
-Accede a servidor de origen y completa:
- 
-Generar un par de claves SSH con el comando ssh-keygen.
-Cargar la clave pública en el servidor Linux remoto.
-Desactivar la autenticación basada en contraseña.
-Transferir la clave al servidor usando ssh-copy-id.
-Iniciar sesión en el VPS usando SSH.
+Access the source server and complete:
 
-Te pedira clave ssh una unica vez luego debes poder acceder sin contraseña.
+Generate an SSH key pair using the ssh-keygen command. Upload the public key to the remote Linux server. Disable password-based authentication. Transfer the key to the server using ssh-copy-id. Log in to the VPS using SSH.
 
-Aquí tienes una explicación detallada de cómo funciona el script:
+It will ask you for an SSH key only once, then you should be able to access without a password.
 
-1️⃣ Configuración Inicial
-El script define varias variables clave:
+Here's a detailed explanation of how the script works:
 
-Credenciales de la base de datos:
+1️⃣ Initial Configuration The script defines several key variables:
 
-bash
-Copiar
-Editar
-USER_DB="root"
-PASSWORD_DB="password"
-HOST_DB="localhost"
-DB_NAME="database"
-Aquí se almacenan el usuario, la contraseña y el nombre de la base de datos que se va a respaldar.
+Database Credentials:
 
-Ubicaciones de los respaldos:
+bash Copy Edit USER_DB="root" PASSWORD_DB="password" HOST_DB="localhost" DB_NAME="database" The user, password, and name of the database to be backed up are stored here.
 
-bash
-Copiar
-Editar
-BACKUP_PATH="/backup"
-REMOTE_USER="root"
-REMOTE_HOST="IP REMOTE"
-REMOTE_PORT="PUERTO REMOTE"
-REMOTE_DIR="/root/backup"
-BACKUP_PATH: Ruta local donde se guardará la copia de seguridad.
+Backrest locations:
 
-REMOTE_HOST y REMOTE_DIR: Servidor remoto y la carpeta donde se enviará el respaldo.
+bash Copy Edit BACKUP_PATH="/backup" REMOTE_USER="root" REMOTE_HOST="REMOTE IP" REMOTE_PORT="REMOTE PORT" REMOTE_DIR="/root/backup" BACKUP_PATH: Local path where the backup will be saved.
 
-REMOTE_PORT: Puerto SSH para la conexión segura.
+REMOTE_HOST and REMOTE_DIR: Remote server and the folder where the backup will be sent.
 
-Formato de fecha y nombre del archivo de respaldo:
+REMOTE_PORT: SSH port for secure connection.
 
-bash
-Copiar
-Editar
-DATE=$(date +"%d-%b-%Y")
-BACKUP_FILE="$BACKUP_PATH/$DB_NAME-$DATE.sql"
-REMOTE_FILE="$REMOTE_DIR/$DB_NAME-$DATE.sql"
-La fecha actual (dd-MMM-YYYY, ej. 02-Apr-2025) se usa para nombrar el archivo de respaldo.
+Backup file name and date format:
 
-2️⃣ Asegurar Permisos
-bash
-Copiar
-Editar
-umask 177
-Evita que otros usuarios puedan leer el archivo del respaldo, asegurando privacidad.
+bash Copy Edit DATE=$(date +"%d-%b-%Y") BACKUP_FILE="$BACKUP_PATH/$DB_NAME-$DATE.sql" REMOTE_FILE="$REMOTE_DIR/$DB_NAME-$DATE.sql" The current date (dd-MMM-YYYY, e.g. 02-Apr-2025) is used to name the backup file.
 
-3️⃣ Verificar si el respaldo ya existe
-Antes de crear el respaldo, el script revisa si ya existe un archivo con el mismo nombre:
+2️⃣ Ensure bash Permissions Copy Edit umask 177 Prevents other users from reading the backup file, ensuring privacy.
 
-bash
-Copiar
-Editar
-if [ -f "$BACKUP_FILE" ]; then
-    echo "El respaldo $BACKUP_FILE ya existe. Saliendo..."
-    exit 1
-fi
-Si el respaldo ya existe en la máquina local, se detiene la ejecución.
+3️⃣ Check if the backup already exists Before creating the backup, the script checks if a file with the same name already exists:
 
-4️⃣ Crear la copia de seguridad de MySQL
-bash
-Copiar
-Editar
-mysqldump --user=$USER_DB --password="$PASSWORD_DB" --host=$HOST_DB $DB_NAME > "$BACKUP_FILE"
-Usa mysqldump para extraer todos los datos de la base de datos y guardarlos en un archivo .sql.
+bash Copy Edit if [ -f "$BACKUP_FILE" ]; then echo "Backup $BACKUP_FILE already exists. Exiting..." exit 1 fi If the backup already exists on the local machine, execution stops.
 
-5️⃣ Verificar si el respaldo ya existe en el servidor remoto
-bash
-Copiar
-Editar
-if ssh -p $REMOTE_PORT "$REMOTE_USER@$REMOTE_HOST" "[ -f '$REMOTE_FILE' ]"; then
-    echo "El respaldo $REMOTE_FILE ya existe en el servidor remoto. Saliendo..."
-    exit 1
-fi
-Se conecta al servidor remoto por SSH y verifica si el respaldo ya está en la otra máquina.
+4️⃣ Create the MySQL backup bash Copy Edit mysqldump --user=$USER_DB --password="$PASSWORD_DB" --host=$HOST_DB $DB_NAME > "$BACKUP_FILE" Use mysqldump to extract all the data from the database and save it to a .sql file.
 
-Si el archivo ya existe en el servidor remoto, se cancela la transferencia.
+5️⃣ Check if the backup already exists on the remote server bash Copy Edit if ssh -p $REMOTE_PORT "$REMOTE_USER@$REMOTE_HOST" "[ -f '$REMOTE_FILE' ]"; then echo "Backup $REMOTE_FILE already exists on the remote server. Exiting..." exit 1 fi Connect to the remote server via SSH and check if the backup is already on the other machine.
 
-6️⃣ Transferir el respaldo al servidor remoto
-bash
-Copiar
-Editar
-rsync -avz -e "ssh -p $REMOTE_PORT" "$BACKUP_FILE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/" --progress
-rsync copia el archivo de respaldo al servidor remoto de forma segura.
+If the file already exists on the remote server, the transfer is canceled.
 
--avz mantiene permisos, estructura y comprime los datos para una transferencia más rápida.
+6️⃣ Transfer the backup to the remote server bash Copy Edit rsync -avz -e "ssh -p $REMOTE_PORT" "$BACKUP_FILE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/" --progress rsync copies the backup file to the remote server securely.
 
---progress muestra el progreso de la transferencia en la terminal.
+-avz maintains permissions, structure, and compresses data for faster transfer.
 
-7️⃣ Eliminar respaldos antiguos en la máquina local
-bash
-Copiar
-Editar
-find "$BACKUP_PATH" -type f -name "$DB_NAME-*.sql" -mtime +2 -exec rm {} \;
-Busca archivos .sql en la carpeta de backups con más de 2 días de antigüedad y los elimina.
+--progress shows the transfer progress in the terminal.
 
-8️⃣ Eliminar respaldos antiguos en el servidor remoto
-bash
-Copiar
-Editar
-ssh -p $REMOTE_PORT "$REMOTE_USER@$REMOTE_HOST" "find \"$REMOTE_DIR\" -type f -name '$DB_NAME-*.sql' -mtime +2 -exec rm {} \;"
-Ejecuta el mismo proceso anterior, pero directamente en el servidor remoto.
+7️⃣ Delete old backups on the local machine bash Copy Edit find "$BACKUP_PATH" -type f -name "$DB_NAME-*.sql" -mtime +2 -exec rm {} ; Looks for .sql files in the backups folder that are older than 2 days and deletes them.
 
-9️⃣ Finalización
-bash
-Copiar
-Editar
-echo "Proceso completado exitosamente."
-Muestra un mensaje de confirmación cuando todo ha salido bien.
+8️⃣ Delete old backups on the remote server bash Copy Edit ssh -p $REMOTE_PORT "$REMOTE_USER@$REMOTE_HOST" "find "$REMOTE_DIR" -type f -name '$DB_NAME-*.sql' -mtime +2 -exec rm {} ;" Run the same process above, but directly on the remote server.
 
-🛠️ Resumen del Flujo
-Verifica si ya existe el respaldo localmente.
+9️⃣ Bash Completion Copy Edit echo "Process completed successfully." Displays a confirmation message when everything went well.
 
-Crea el respaldo con mysqldump.
+🛠️ Flow Summary Check if the backup already exists locally.
 
-Verifica si el archivo ya existe en el servidor remoto.
+Create the backup with mysqldump.
 
-Transfiere el respaldo con rsync.
+Check if the file already exists on the remote server.
 
-Elimina respaldos antiguos tanto en el servidor local como en el remoto.
+Transfer the backup with rsync.
 
-Muestra mensaje de éxito al finalizar.
+Delete old backups on both the local and remote servers.
 
+Displays success message upon completion.
 
+🔹 This script completely automates the creation and transfer of database backups.
 
-🔹 Este script automatiza completamente la creación y transferencia de respaldos de la base de datos. 
-
-programa un crontab para la ejecucion diaria del mismo.
+schedule a crontab for its daily execution.
